@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#111814">
+	<title>Relay | Web Proxy</title>
+	<style>
+		:root {
+			color-scheme: light;
+			--bg: #f0f1eb;
+			--panel: #fbfcf8;
+			--panel-raised: #e7ece5;
+			--line: #d5dbd2;
+			--ink: #223b31;
+			--muted: #69796f;
+			--accent: #c76543;
+			--accent-ink: #fffdf8;
+			font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+			font-synthesis: none;
+			text-rendering: optimizeLegibility;
+			-webkit-font-smoothing: antialiased;
+		}
+		* { box-sizing: border-box; }
+		html, body { width: 100%; height: 100%; }
+		body { min-width: 320px; min-height: 0; margin: 0; overflow: hidden; background: var(--bg); color: var(--ink); }
+		button, input { font: inherit; }
+		button { color: inherit; }
+		.shell { width: 100%; height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+		.topbar { min-height: 59px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--line); background: #fafbf7; }
+		.brand { display: flex; align-items: center; gap: 11px; font-size: 14px; font-weight: 700; }
+		.brand-mark { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid #b8c9b9; border-radius: 7px; background: #e6eee5; color: #315c49; font-size: 15px; }
+		.top-status { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 11px; }
+		.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #5b956e; }
+		.search-shell { width: min(920px, calc(100% - 48px)); margin: auto; padding: 64px 0 48px; }
+		.intro { display: flex; align-items: end; justify-content: space-between; gap: 22px; margin-bottom: 24px; }
+		.intro h1 { margin: 0; font-size: 40px; font-weight: 600; }
+		.intro p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+		.key-hint { color: var(--muted); font-size: 11px; white-space: nowrap; }
+		.search-form { min-height: 58px; display: flex; gap: 8px; padding: 7px; border: 1px solid #cbd5c9; border-radius: 7px; background: var(--panel); box-shadow: 0 3px 12px #344a3710; }
+		.search-form:focus-within { border-color: #719579; }
+		.url-input { flex: 1; min-width: 0; padding: 0 13px; border: 0; outline: none; background: transparent; color: var(--ink); font-size: 13px; }
+		.url-input::placeholder { color: #89968b; }
+		.go-button { min-width: 96px; padding: 0 16px; border: 0; border-radius: 5px; background: var(--accent); color: var(--accent-ink); cursor: pointer; font-size: 12px; font-weight: 700; }
+		.go-button:hover { background: #ae5638; }
+		.go-button:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+		.presets { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 17px; }
+		.presets-label { margin-right: 3px; color: var(--muted); font-size: 11px; }
+		.preset { min-height: 33px; padding: 0 12px; border: 1px solid #d5ddd3; border-radius: 5px; background: #fafbf7; color: #344c3e; cursor: pointer; font-size: 11px; }
+		.preset:hover { border-color: #8aa68d; background: #e9f0e7; }
+		.browser { flex: 1 1 0; height: 0; min-height: 0; display: none; flex-direction: column; margin: 8px 10px 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+		.browser.visible { display: flex; }
+		.tab-strip { height: 38px; flex: 0 0 38px; display: flex; align-items: center; gap: 5px; overflow: hidden; padding: 4px 8px 0; border-bottom: 1px solid #dde2d9; background: #ebeee8; }
+		.tab-list { height: 100%; min-width: 0; flex: 1; display: flex; align-items: stretch; gap: 4px; overflow-x: auto; scrollbar-width: thin; }
+		.tab-item { min-width: 0; width: clamp(130px, 20vw, 220px); flex: 0 1 200px; display: flex; align-items: center; gap: 2px; padding: 0 5px 0 9px; border: 1px solid transparent; border-bottom: 0; border-radius: 5px 5px 0 0; background: transparent; }
+		.tab-item[aria-selected="true"] { border-color: #d8ddd4; background: #fbfcf8; }
+		.tab-select { min-width: 0; height: 100%; flex: 1; display: flex; align-items: center; gap: 8px; padding: 0; overflow: hidden; border: 0; background: transparent; color: #46584a; text-align: left; cursor: pointer; font-size: 11px; }
+		.tab-select span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.tab-favicon { width: 14px; height: 14px; flex: 0 0 14px; display: grid; place-items: center; border-radius: 4px; background: #e7eee3; color: #5e7a58; font-size: 9px; }
+		.tab-close, .new-tab { width: 25px; height: 25px; flex: 0 0 25px; display: grid; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #718075; cursor: pointer; font-size: 15px; }
+		.tab-close:hover, .new-tab:hover { background: #e0e5dd; color: #294233; }
+		.new-tab { margin: 0 1px 0 2px; font-size: 18px; }
+		.browser-bar { min-height: 47px; flex: 0 0 auto; display: flex; align-items: center; gap: 9px; padding: 0 12px; border-bottom: 1px solid #d7ded9; background: #f4f5f0; color: #435045; }
+		.browser-actions { display: flex; align-items: center; gap: 3px; }
+		.browser-actions button { width: 28px; height: 27px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; cursor: pointer; font-size: 15px; }
+		.browser-actions button:hover { background: #dfe6de; }
+		.browser-nav { flex: 1; min-width: 0; }
+		.browser-url { width: 100%; height: 30px; padding: 0 11px; border: 1px solid #d4dbd2; border-radius: 5px; outline: none; background: #fff; color: #334b3b; font-size: 11px; text-overflow: ellipsis; }
+		.browser-url:focus { border-color: #719579; }
+		.browser-state { flex: 0 0 auto; color: #607462; font-size: 10px; }
+		.browser-viewport { width: 100%; flex: 1 1 0; min-height: 0; display: flex; background: white; }
+		.tab-view { width: 100%; height: 100%; min-height: 0; flex: 1; display: flex; background: #fff; }
+		.tab-view[hidden] { display: none; }
+		.browser-frame { width: 100%; height: 100%; flex: 1 1 0; min-height: 0; border: 0; background: white; }
+		.proxy-error { margin: auto; padding: 28px; color: #714b3c; font-size: 13px; }
+		.welcome { flex: 1; display: grid; align-content: center; justify-items: center; gap: 12px; min-height: 280px; padding: 40px 20px; color: #455046; text-align: center; }
+		.welcome[hidden] { display: none; }
+		.welcome-mark { width: 48px; height: 48px; display: grid; place-items: center; border: 1px solid #cfd7c7; border-radius: 12px; color: #829858; font-size: 24px; }
+		.welcome strong { font-size: 15px; }
+		.welcome span { color: #768176; font-size: 12px; }
+		.notice { width: min(850px, calc(100% - 48px)); margin: 23px auto 28px; padding-top: 13px; border-top: 1px solid #28332c; color: #98a399; font-size: 10px; line-height: 1.65; }
+		.notice strong { color: #bec9be; font-weight: 600; }
+		@media (max-width: 600px) {
+			.topbar { min-height: 52px; padding: 0 15px; }
+			.search-shell { width: calc(100% - 30px); margin-top: 31px; }
+			.intro { align-items: flex-start; }
+			.intro h1 { font-size: 31px; }
+			.key-hint { display: none; }
+			.search-shell { padding: 48px 0 34px; }
+			.search-form { min-height: 50px; }
+			.go-button { min-width: 74px; padding: 0 10px; }
+			.browser { min-height: 0; margin: 6px; }
+			.browser-state { display: none; }
+			.notice { width: calc(100% - 30px); margin-top: 16px; }
+		}
+		@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; } }
+	</style>
+</head>
+<body>
+	<main class="shell">
+		<header class="topbar">
+			<div class="brand"><span class="brand-mark" aria-hidden="true">↗</span><span>relay</span></div>
+			<div class="top-status"><span class="status-dot"></span><span>Private session</span></div>
+		</header>
+
+		<section class="search-shell" id="searchPanel">
+			<div class="intro">
+				<div><h1>Browse anywhere.</h1><p>Enter a website to open it through your proxy.</p></div>
+				<span class="key-hint">Enter&nbsp; ↵</span>
+			</div>
+			<form class="search-form" id="addressForm">
+				<input class="url-input" id="addressInput" type="text" placeholder="Search or enter a website address" autocomplete="url" spellcheck="false" aria-label="Website address" required>
+				<button class="go-button" type="submit">Go&nbsp; ↗</button>
+			</form>
+			<nav class="presets" aria-label="Popular websites">
+				<span class="presets-label">Quick access</span>
+				<button class="preset" type="button" data-site="https://html.duckduckgo.com/html/">DuckDuckGo</button>
+				<button class="preset" type="button" data-site="https://www.wikipedia.org">Wikipedia</button>
+				<button class="preset" type="button" data-site="https://github.com">GitHub</button>
+				<button class="preset" type="button" data-site="https://www.youtube.com">YouTube</button>
+				<button class="preset" type="button" data-site="https://www.roblox.com">Roblox</button>
+			</nav>
+		</section>
+
+		<section class="browser" id="browser" aria-label="Proxied website">
+			<div class="tab-strip" aria-label="Browser tabs"><div class="tab-list" id="tabList" role="tablist" aria-label="Open tabs"></div><button class="new-tab" id="newTabButton" type="button" aria-label="New tab" title="New tab (Ctrl+T)">+</button></div>
+			<div class="browser-bar">
+				<div class="browser-actions">
+					<button id="backButton" type="button" aria-label="Back" title="Back">‹</button>
+					<button id="forwardButton" type="button" aria-label="Forward" title="Forward">›</button>
+					<button id="reloadButton" type="button" aria-label="Reload" title="Reload">⟳</button>
+				</div>
+				<form class="browser-nav" id="browserAddressForm">
+					<input class="browser-url" id="browserAddress" type="text" aria-label="Search or enter a website address" autocomplete="url" spellcheck="false" required>
+				</form>
+				<span class="browser-state" id="browserState">Ready</span>
+				<button class="browser-actions" id="homeButton" type="button" aria-label="Home" title="Home"><span>⌂</span></button>
+			</div>
+			<div class="browser-viewport" id="browserViewport"></div>
+		</section>
+
+		<footer class="notice" id="notice"><strong>A personal web proxy.</strong> Some sites restrict proxy access or depend on features this browser cannot relay. Your Codespaces port must remain private. This does not run native apps or Roblox experiences.</footer>
+	</main>
+
+	<script src="/scram/scramjet.all.js"></script>
+	<script src="/baremux/index.js"></script>
+	<script type="module" src="/app.js"></script>
+</body>
+</html>
